@@ -11,31 +11,60 @@ import re
 
 
 SYSTEM_PROMPT = """
-You are the Reasoning and Planning Engine of GHOST LOCAL AI.
+You are GHOST Reasoning and Planning Engine.
 
-Your task is to analyse the owner's request and prepare a clear plan.
+Your role is to understand the owner's objective and create a safe,
+accurate and practical plan. You NEVER execute actions.
 
 OWNER AUTHORITY:
-- The owner is the final authority.
-- Never approve your own critical actions.
-- Never execute actions.
-- Level 4 critical, destructive, irreversible or high-impact
-  actions require specific owner approval.
-- If risk or authorization is unclear, stop and ask.
+- The owner is the only final authority.
+- Never approve your own actions.
+- Never override or weaken an owner's restriction.
+- Level 4 actions require specific owner approval.
+- If risk, scope or permission is unclear, stop and ask.
 
-ANALYSIS RULES:
-- Understand the actual objective.
-- Separate facts, assumptions and unknown information.
-- Identify missing information.
-- Break complex tasks into practical steps.
-- Identify risks and required permissions.
-- Do not invent capabilities or claim completed actions.
+MANDATORY RESTRICTION ANALYSIS:
+1. Read the complete owner's request before planning.
+2. Identify every prohibited action explicitly.
+3. Convert each prohibition into a HARD CONSTRAINT.
+4. Apply all hard constraints to every proposed plan step.
+5. A forbidden action must never appear as a recommended step,
+   even if it would make the task easier.
+6. Do not interpret a request for analysis as permission to
+   open, read, inspect or modify files.
+7. If the objective cannot be achieved within the restrictions,
+   explain the limitation and ask the owner.
 
-Return ONLY valid JSON using this structure:
+EXAMPLES:
+- "Do not open files" means no opening files.
+- "Do not read files" means no reading file contents.
+- "Analysis only" means analysis without changing anything.
+- "Do not modify or delete" prohibits both operations.
+- Never suggest a prohibited action as an intermediate step.
 
+PLANNING:
+- Understand the actual subject and objective.
+- Distinguish files, folders, projects, applications and systems.
+- Separate verified facts, assumptions and unknowns.
+- Never invent files, system conditions or completed work.
+- Provide at least 3 relevant steps when a safe plan is possible.
+- If no safe plan is possible, explain why instead of inventing steps.
+- Keep each step specific and concise.
+
+RISK:
+1 = Routine.
+2 = Operational within authorized scope.
+3 = Important within explicitly pre-authorized scope.
+4 = Critical, destructive, irreversible or high-impact.
+- Level 4 always requires specific owner approval.
+- Never downgrade risk to avoid approval.
+- If uncertain, use the safer classification.
+
+OUTPUT:
+Return ONLY valid JSON with these fields:
 {
-  "objective": "What the owner wants to achieve",
-  "understanding": "Your interpretation of the request",
+  "objective": "Owner's goal",
+  "understanding": "Meaning of the request",
   "facts": [],
   "assumptions": [],
   "unknowns": [],
@@ -47,13 +76,7 @@ Return ONLY valid JSON using this structure:
   "status": "planned"
 }
 
-Risk levels:
-1 = Routine
-2 = Operational
-3 = Important
-4 = Critical
-
-Do not execute the plan.
+Do not execute anything.
 """
 
 
@@ -103,6 +126,10 @@ def validate_plan(plan):
     if not isinstance(plan["plan"], list):
         raise ValueError("Plan steps must be a list.")
 
+    if len(plan["plan"]) == 0:
+        raise ValueError("Plan must contain at least one actionable step.")
+
+
     if not isinstance(plan["risks"], list):
         raise ValueError("Risks must be a list.")
 
@@ -113,13 +140,47 @@ def validate_plan(plan):
 
 
 def parse_plan(response_text):
-    try:
-        plan = json.loads(response_text)
-    except (json.JSONDecodeError, TypeError) as error:
-        raise ValueError("Model did not return valid JSON.") from error
+    if not isinstance(response_text, str):
+        raise ValueError("Model response must be text.")
 
-    validate_plan(plan)
-    return plan
+    # Remove trailing commas outside JSON strings.
+    cleaned = []
+    in_string = False
+    escaped = False
+    i = 0
+
+    while i < len(response_text):
+        char = response_text[i]
+
+        if in_string:
+            cleaned.append(char)
+            if escaped:
+                escaped = False
+            elif char == "\\\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        else:
+            if char == '"':
+                in_string = True
+                cleaned.append(char)
+            elif char == ',':
+                j = i + 1
+                while j < len(response_text) and response_text[j].isspace():
+                    j += 1
+                if j < len(response_text) and response_text[j] in '}]':
+                    i += 1
+                    continue
+                cleaned.append(char)
+            else:
+                cleaned.append(char)
+
+        i += 1
+
+    try:
+        return json.loads("".join(cleaned))
+    except json.JSONDecodeError as error:
+        raise ValueError("Model did not return valid JSON.") from error
 
 
 # Local Qwen API connection
@@ -166,152 +227,208 @@ def ask_reasoning(user_request):
         ) from error
 
 
-# Reasoning Engine v2: Context and Constraint Awareness
-SYSTEM_PROMPT += """
-
-ADDITIONAL REASONING REQUIREMENTS:
-
-1. CONTEXT UNDERSTANDING
-- Identify the actual subject of the request.
-- Distinguish between a file, folder, project, application and system.
-- Interpret the complete request, not isolated keywords.
-- Use available conversation context when provided.
-- Never assume the user means only one file when referring to a project.
-
-2. USER CONSTRAINTS
-- Identify every explicit instruction, restriction and prohibition.
-- Treat instructions such as "do not modify", "do not delete",
-  "read-only" and "analysis only" as mandatory constraints.
-- The plan must never contradict these constraints.
-- For read-only requests, recommend inspection and analysis only.
-- Do not suggest saving, editing, moving or deleting files
-  when the user prohibits modifications.
-
-3. FACTS AND ASSUMPTIONS
-- Do not invent project files, system conditions or capabilities.
-- Separate verified facts from assumptions.
-- Put missing information under unknowns.
-- Ask for clarification when the objective cannot be understood safely.
-
-4. RISK ASSESSMENT
-- Assess the actual consequences of proposed steps.
-- Level 1: Routine.
-- Level 2: Operational within authorized scope.
-- Level 3: Important, only within explicitly pre-authorized scope.
-- Level 4: Critical, destructive, irreversible or high-impact.
-- Level 4 always requires specific owner approval.
-- Never approve your own actions.
-- If risk or authorization is unclear, stop and ask.
-
-5. PLAN QUALITY
-- Every step must directly support the owner's objective.
-- Respect all user restrictions.
-- Prefer the safest practical approach.
-- Do not claim that any action has been completed.
-- This engine creates plans only; it never executes actions.
-
-Return only the required JSON structure.
-"""
 
 
 
 
-# Preserve original function and apply enforcement to Qwen results.
+
+# Automatic Plan Correction: maximum 3 attempts.
+
 _original_ask_reasoning = ask_reasoning
 
 
 def ask_reasoning(user_request):
-    result = _original_ask_reasoning(user_request)
-    return enforce_constraints(user_request, result)
+    if not isinstance(user_request, str) or not user_request.strip():
+        raise ValueError("User request cannot be empty.")
+
+    original_request = user_request.strip()
+    feedback = None
+    last_error = None
+
+    for attempt in range(1, 4):
+        system_message, user_message = create_plan(original_request)
+
+        if feedback:
+            system_message["content"] += (
+                "\n\nVALIDATION CORRECTION:\n"
+                "The previous plan was rejected.\n"
+                "Correct the plan while preserving every owner restriction.\n"
+                "Return complete valid JSON only.\n"
+                "Ensure the plan contains at least 3 actionable steps.\n"
+                "Do not include prohibited actions.\n"
+                "Validator feedback: " + feedback
+            )
+
+        try:
+            import urllib.request
+            import urllib.error
+
+            payload = {
+                "model": "qwen",
+                "messages": [system_message, user_message],
+                "temperature": 0.1,
+                "max_tokens": 900
+            }
+
+            request = urllib.request.Request(
+                API_URL,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+
+            with urllib.request.urlopen(request, timeout=180) as response:
+                result = json.loads(response.read().decode("utf-8"))
+
+            answer = result["choices"][0]["message"]["content"].strip()
+            plan = parse_plan(answer)
+            validate_plan(plan)
+            return enforce_constraints(original_request, plan)
+
+        except (ValueError, RuntimeError, KeyError, IndexError, TypeError) as error:
+            last_error = error
+            feedback = str(error)
+
+    raise RuntimeError(
+        "GHOST could not produce a valid safe plan after "
+        "3 attempts. Owner review required. Last error: "
+        + str(last_error)
+    ) from last_error
 
 
-# V3.1: Strict action and scope enforcement
+# V4: Action + Target Constraint Validator
 
 def enforce_constraints(user_request, plan):
+    import re
+
+    if not isinstance(user_request, str) or not isinstance(plan, dict):
+        raise ValueError("Invalid request or plan structure.")
+
+    steps = plan.get("plan")
+    if not isinstance(steps, list):
+        raise ValueError("Plan steps must be a list.")
+
     request = user_request.lower()
 
-    plan_only = any(x in request for x in [
-        "pelan sahaja", "analisis sahaja",
-        "analysis only", "plan only"
-    ])
-
     restrictions = {
-        "no_open": (
-            "jangan buka" in request or
-            ("jangan" in request and "buka" in request) or
-            "do not open" in request
-        ),
-        "no_modify": (
-            "jangan ubah" in request or
-            ("jangan" in request and "ubah" in request) or
-            "do not modify" in request or
-            "analisis sahaja" in request or
-            "analysis only" in request or
-            "pelan sahaja" in request or
-            "plan only" in request
-        ),
-        "no_delete": (
-            "padam" in request or "delete" in request
-        ) and ("jangan" in request or "do not" in request),
-        "no_move": (
-            "pindah" in request or "move" in request
-        ) and ("jangan" in request or "do not" in request),
-        "no_rename": (
-            "namakan semula" in request or "rename" in request
-        ) and ("jangan" in request or "do not" in request)
+        "no_open": any(term in request for term in (
+            "jangan buka", "jangan baca", "jangan akses",
+            "jangan periksa", "do not open", "do not read",
+            "do not access", "do not inspect"
+        )),
+        "no_modify": any(term in request for term in (
+            "jangan ubah", "jangan edit", "jangan tulis",
+            "jangan cipta", "jangan simpan", "do not modify",
+            "do not edit", "do not write", "analysis only",
+            "analisis sahaja", "plan only", "pelan sahaja"
+        )),
+        "no_delete": any(term in request for term in (
+            "jangan padam", "jangan hapus",
+            "do not delete", "do not remove"
+        )),
+        "no_move": any(term in request for term in (
+            "jangan pindah", "jangan alih",
+            "do not move", "do not transfer"
+        )),
+        "no_rename": any(term in request for term in (
+            "jangan namakan semula", "jangan tukar nama",
+            "do not rename"
+        ))
     }
 
-    blocked = {
-        "no_open": [
-            "open", "read", "inspect", "review",
-            "access", "scan", "examine", "browse"
-        ],
-        "no_modify": [
-            "create", "edit", "modify", "write",
-            "save", "update", "install", "replace",
-            "copy", "document"
-        ],
-        "no_delete": ["delete", "remove", "erase", "unlink"],
-        "no_move": ["move", "relocate", "transfer"],
-        "no_rename": ["rename"]
+    action_patterns = {
+        "no_open": r"\b(open|read|inspect|review|access|scan|examine|browse|buka|membuka|baca|membaca|meneliti|memeriksa|mengakses|menyemak)\b",
+        "no_modify": r"\b(create|edit|modify|write|save|update|install|replace|copy|cipta|mencipta|ubah|mengubah|menulis|menyimpan|memasang|menyalin)\b",
+        "no_delete": r"\b(delete|remove|erase|unlink|padam|memadam|hapus|menghapus)\b",
+        "no_move": r"\b(move|relocate|transfer|pindah|memindahkan|mengalih)\b",
+        "no_rename": r"\b(rename|namakan semula|menamakan semula)\b"
     }
+
+    file_targets = (
+        "file", "files", "fail", "dokumen", "document",
+        "folder", "directory", "direktori", "database",
+        "pangkalan data", "disk", "drive", "pemacu",
+        "server", "sistem", "system", "project folder",
+        "folder projek"
+    )
+
+    critical_terms = (
+        "delete database", "drop database", "destroy database",
+        "wipe database", "truncate table", "drop table",
+        "format disk", "format drive", "wipe hard drive",
+        "shred disk", "factory reset server",
+        "padam pangkalan data", "hapus pangkalan data",
+        "kosongkan pangkalan data", "padam semua data",
+        "delete all data", "destroy all data",
+        "hapus semua rekod", "delete all records"
+    )
 
     violations = []
-    steps = plan.get("plan", [])
-
-    if not isinstance(steps, list):
-        raise ValueError("Invalid plan structure.")
 
     for number, step in enumerate(steps, 1):
         if isinstance(step, dict):
-            action = str(step.get("action", step.get("step", ""))).lower()
-            description = str(step.get("description", "")).lower()
+            text = " ".join(
+                str(step.get(key, ""))
+                for key in ("action", "step", "description", "target")
+            ).lower()
+        elif isinstance(step, str):
+            text = step.lower()
         else:
-            action = str(step).lower()
-            description = ""
-
-        words = set(re.findall(r"[a-z]+", action + " " + description))
+            violations.append(
+                f"Step {number}: unsupported step format."
+            )
+            continue
 
         for restriction, enabled in restrictions.items():
-            if enabled and words.intersection(blocked[restriction]):
-                violations.append(
-                    f"Step {number}: violates {restriction}: {action}"
-                )
+            if not enabled:
+                continue
 
-        if plan_only and words.intersection({
-            "notify", "inform", "send", "contact", "execute",
-            "implement", "deploy"
-        }):
-            violations.append(
-                f"Step {number}: exceeds plan-only scope: {action}"
+            actions = re.findall(action_patterns[restriction], text)
+
+            if not actions:
+                continue
+
+            # An action is blocked when its target is a file,
+            # folder, database, disk, server or computer system.
+            target_found = any(target in text for target in file_targets)
+
+            # If an action is present but its target is unclear,
+            # reject conservatively for owner review.
+            context_targets = (
+                "maklumat yang diberikan",
+                "maklumat yang sudah diberikan",
+                "konteks perbualan",
+                "perbualan",
+                "provided information",
+                "information already provided",
+                "available context",
+                "conversation context",
+                "owner's instructions",
+                "arahan pemilik",
             )
+            context_found = any(target in text for target in context_targets)
+
+            if target_found or (
+                restriction == "no_open" and not context_found
+            ):
+                violations.append(
+                    f"Step {number}: {restriction} action "
+                    f"targets or may target a restricted resource: {text}"
+                )
+                break
+
+    plan_text = " ".join(
+        str(step).lower() for step in steps
+    )
+
+    if any(term in plan_text for term in critical_terms):
+        plan["risk_level"] = 4
+        plan["approval_required"] = True
+        plan["approval_reason"] = (
+            "Critical action detected. Specific owner approval required."
+        )
 
     if violations:
-        plan["status"] = "rejected"
-        plan["approval_required"] = True
-        plan["approval_reason"] = "Plan violates owner restrictions."
-        plan["constraint_violations"] = violations
-
         raise ValueError(
             "PLAN REJECTED:\n" + "\n".join(violations)
         )
@@ -319,4 +436,5 @@ def enforce_constraints(user_request, plan):
     if plan.get("risk_level") == 4:
         plan["approval_required"] = True
 
+    validate_plan(plan)
     return plan
