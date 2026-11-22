@@ -1,0 +1,45 @@
+# Secrets and credentials
+*.env
+.env
+.env.*
+!*.env.example
+*.key
+*.pem
+*.secret
+
+# Private memory and databases
+memory/*.db
+memory/*.sqlite
+memory/*.sqlite3
+
+# AI model files
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Python temporary files
+__pycache__/
+*.pyc
+*.pyo
+
+# Logs and temporary files
+logs/*
+*.log
+*.tmp
+
+# Backups
+backups/*
+
+# Private configuration
+/config/
+
+# Third-party AI engine
+/engine/llama.cpp/
+
+# Old code backups
+*.bak
+*.backup
+*.backup*
+*.before-*
