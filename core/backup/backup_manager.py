@@ -103,18 +103,27 @@ def show_history():
                 metadata_path.read_text(encoding="utf-8")
             )
 
-            backup_path = BACKUP_DIR / metadata["file"]
+            filename = metadata["file"]
+
+            if (
+                not isinstance(filename, str)
+                or Path(filename).name != filename
+                or not filename.endswith(".bundle")
+            ):
+                raise ValueError("Invalid backup filename")
+
+            backup_path = BACKUP_DIR / filename
 
             records.append({
                 "created_at": metadata.get("created_at", "Unknown"),
-                "file": metadata["file"],
+                "file": filename,
                 "commit": metadata.get("commit", "Unknown"),
                 "verified": metadata.get("verified", False),
                 "exists": backup_path.is_file(),
                 "size": backup_path.stat().st_size if backup_path.is_file() else 0
             })
 
-        except (OSError, json.JSONDecodeError, KeyError):
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
             print(f"WARNING: Cannot read {metadata_path.name}")
 
     records.sort(
