@@ -90,9 +90,71 @@ def create_backup():
         raise
 
 
+
+
+def show_history():
+    print("\n========== GHOST BACKUP HISTORY ==========\n")
+
+    records = []
+
+    for metadata_path in BACKUP_DIR.glob("*.bundle.json"):
+        try:
+            metadata = json.loads(
+                metadata_path.read_text(encoding="utf-8")
+            )
+
+            backup_path = BACKUP_DIR / metadata["file"]
+
+            records.append({
+                "created_at": metadata.get("created_at", "Unknown"),
+                "file": metadata["file"],
+                "commit": metadata.get("commit", "Unknown"),
+                "verified": metadata.get("verified", False),
+                "exists": backup_path.is_file(),
+                "size": backup_path.stat().st_size if backup_path.is_file() else 0
+            })
+
+        except (OSError, json.JSONDecodeError, KeyError):
+            print(f"WARNING: Cannot read {metadata_path.name}")
+
+    records.sort(
+        key=lambda item: item["created_at"],
+        reverse=True
+    )
+
+    if not records:
+        print("No backup history found.")
+        return
+
+    for number, record in enumerate(records, start=1):
+        size_kb = record["size"] / 1024
+
+        print(f"Backup #{number}")
+        print(f"Date: {record['created_at']}")
+        print(f"File: {record['file']}")
+        print(f"Commit: {record['commit']}")
+        print(f"Integrity recorded: {'VERIFIED' if record['verified'] else 'NOT VERIFIED'}")
+        print(f"File exists: {'YES' if record['exists'] else 'NO'}")
+        print(f"Size: {size_kb:.2f} KB")
+        print("------------------------------------------")
+
+    print(f"Total backups recorded: {len(records)}")
+    print("\n==========================================")
+
+
 if __name__ == "__main__":
+    import sys
+
+    command = sys.argv[1].lower() if len(sys.argv) > 1 else "backup"
+
     try:
-        create_backup()
+        if command == "history":
+            show_history()
+        elif command == "backup":
+            create_backup()
+        else:
+            print("Usage: python backup_manager.py [backup|history]")
+            raise SystemExit(2)
     except Exception as error:
-        print(f"BACKUP FAILED: {error}")
+        print(f"OPERATION FAILED: {error}")
         raise SystemExit(1)
