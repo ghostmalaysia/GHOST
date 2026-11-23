@@ -304,7 +304,9 @@ def enforce_constraints(user_request, plan):
         "no_modify": any(term in request for term in (
             "jangan ubah", "jangan edit", "jangan tulis",
             "jangan cipta", "jangan simpan", "do not modify",
-            "do not edit", "do not write", "analysis only",
+            "do not edit", "do not write", "do not install",
+            "do not deploy", "jangan pasang", "jangan memasang",
+            "jangan install", "analysis only",
             "analisis sahaja", "plan only", "pelan sahaja"
         )),
         "no_delete": any(term in request for term in (
@@ -323,7 +325,7 @@ def enforce_constraints(user_request, plan):
 
     action_patterns = {
         "no_open": r"\b(open|read|inspect|review|access|scan|examine|browse|buka|membuka|baca|membaca|meneliti|memeriksa|mengakses|menyemak)\b",
-        "no_modify": r"\b(create|edit|modify|write|save|update|install|replace|copy|cipta|mencipta|ubah|mengubah|menulis|menyimpan|memasang|menyalin)\b",
+        "no_modify": r"\b(create|edit|modify|write|save|update|install|deploy|replace|copy|cipta|mencipta|ubah|mengubah|menulis|menyimpan|pasang|memasang|menyalin)\b",
         "no_delete": r"\b(delete|remove|erase|unlink|padam|memadam|hapus|menghapus)\b",
         "no_move": r"\b(move|relocate|transfer|pindah|memindahkan|mengalih)\b",
         "no_rename": r"\b(rename|namakan semula|menamakan semula)\b"
