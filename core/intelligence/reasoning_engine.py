@@ -114,6 +114,17 @@ def validate_plan(plan):
     if not required_fields.issubset(plan):
         raise ValueError("Plan is missing required fields.")
 
+    for field in ("objective", "understanding", "status"):
+        if not isinstance(plan[field], str) or not plan[field].strip():
+            raise ValueError(f"{field} must be non-empty text.")
+
+    for field in ("facts", "assumptions", "unknowns", "risks"):
+        if not isinstance(plan[field], list):
+            raise ValueError(f"{field} must be a list.")
+
+        if not all(isinstance(item, str) for item in plan[field]):
+            raise ValueError(f"Every item in {field} must be text.")
+
     if type(plan["risk_level"]) is not int:
         raise ValueError("Risk level must be an integer.")
 
@@ -123,20 +134,40 @@ def validate_plan(plan):
     if type(plan["approval_required"]) is not bool:
         raise ValueError("Approval flag must be true or false.")
 
-    if not isinstance(plan["plan"], list):
-        raise ValueError("Plan steps must be a list.")
+    if not isinstance(plan["approval_reason"], str):
+        raise ValueError("Approval reason must be text.")
 
-    if len(plan["plan"]) == 0:
+    if not isinstance(plan["plan"], list) or not plan["plan"]:
         raise ValueError("Plan must contain at least one actionable step.")
 
+    for number, step in enumerate(plan["plan"], 1):
+        if isinstance(step, str):
+            if not step.strip():
+                raise ValueError(f"Step {number} cannot be empty.")
 
-    if not isinstance(plan["risks"], list):
-        raise ValueError("Risks must be a list.")
+        elif isinstance(step, dict):
+            if not any(
+                isinstance(value, str) and value.strip()
+                for value in step.values()
+            ):
+                raise ValueError(f"Step {number} must contain useful text.")
+
+        else:
+            raise ValueError(
+                f"Step {number} must be text or a JSON object."
+            )
+
+    if plan["status"] not in ("planned", "needs_review", "blocked"):
+        raise ValueError("Invalid plan status.")
 
     if plan["risk_level"] == 4 and not plan["approval_required"]:
-        raise ValueError("Level 4 requires owner approval.")
+        raise ValueError("Level 4 requires specific owner approval.")
+
+    if plan["approval_required"] and not plan["approval_reason"].strip():
+        raise ValueError("Approval reason is required.")
 
     return True
+
 
 
 def parse_plan(response_text):
@@ -187,54 +218,8 @@ def parse_plan(response_text):
 API_URL = "http://127.0.0.1:8080/v1/chat/completions"
 
 
-def ask_reasoning(user_request):
-    import urllib.request
-    import urllib.error
-
-    system_message, user_message = create_plan(user_request)
-
-    payload = {
-        "model": "qwen",
-        "messages": [system_message, user_message],
-        "temperature": 0.2,
-        "max_tokens": 512
-    }
-
-    request = urllib.request.Request(
-        API_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=180) as response:
-            result = json.loads(response.read().decode("utf-8"))
-
-        answer = result["choices"][0]["message"]["content"].strip()
-
-        return parse_plan(answer)
-
-    except urllib.error.HTTPError as error:
-        details = error.read().decode("utf-8", errors="replace")
-        raise RuntimeError(
-            f"Qwen API error {error.code}: {details}"
-        ) from error
-
-    except (KeyError, IndexError, TypeError) as error:
-        raise RuntimeError(
-            "Qwen returned an unexpected response format."
-        ) from error
-
-
-
-
-
-
-
 # Automatic Plan Correction: maximum 3 attempts.
 
-_original_ask_reasoning = ask_reasoning
 
 
 def ask_reasoning(user_request):
