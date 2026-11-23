@@ -157,6 +157,28 @@ def validate_plan(plan):
                 f"Step {number} must be text or a JSON object."
             )
 
+    # Reject duplicate or repeated plan steps.
+    seen_steps = set()
+
+    for number, step in enumerate(plan["plan"], 1):
+        if isinstance(step, str):
+            step_text = step
+        else:
+            step_text = " ".join(
+                value for value in step.values()
+                if isinstance(value, str)
+            )
+
+        normalized = " ".join(step_text.casefold().split())
+        normalized = normalized.rstrip(" .!?;:")
+
+        if normalized in seen_steps:
+            raise ValueError(
+                f"Duplicate plan step detected at step {number}."
+            )
+
+        seen_steps.add(normalized)
+
     if plan["status"] not in ("planned", "needs_review", "blocked"):
         raise ValueError("Invalid plan status.")
 

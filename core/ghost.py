@@ -13,6 +13,7 @@ sys.path.insert(0, str(MEMORY_DIR))
 
 import ghost_memory as local_memory
 from cloud_memory import CloudMemory
+from intelligence.reasoning_engine import ask_reasoning
 
 
 def load_identity():
@@ -230,6 +231,7 @@ def main():
 
     print("\nGHOST LOCAL AI — CLOUD MEMORY EDITION")
     print("Arahan:")
+    print("/plan TEXT    - Bina pelan dan semak risiko")
     print("/remember     - Simpan memori ke Cloud")
     print("/memory       - Lihat Local dan Cloud Memory")
     print("/search       - Cari Local dan Cloud Memory")
@@ -257,6 +259,47 @@ def main():
         elif command == "/clear":
             messages = [{"role": "system", "content": identity}]
             print("GHOST: Perbualan telah direset.\n")
+            continue
+
+        elif command.startswith("/plan"):
+            objective = user_text[len("/plan"):].strip()
+            if not objective:
+                print("Cara guna: /plan objektif\n")
+                continue
+
+            print("\nGHOST: Sedang menyediakan pelan. Tiada tindakan akan dilaksanakan...\n")
+            try:
+                plan = ask_reasoning(objective)
+
+                print("===== GHOST PLAN =====")
+                print("Objektif:", plan["objective"])
+                print("Pemahaman:", plan["understanding"])
+
+                for field in ("facts", "assumptions", "unknowns"):
+                    print(f"\n{field.upper()}:")
+                    for item in plan[field]:
+                        print("-", item)
+                    if not plan[field]:
+                        print("- Tiada")
+
+                print("\nLANGKAH:")
+                for number, step in enumerate(plan["plan"], 1):
+                    if isinstance(step, dict):
+                        print(f"{number}. " + str(step))
+                    else:
+                        print(f"{number}. {step}")
+
+                print("\nRISIKO:", plan["risk_level"])
+                print("RISIKO YANG DIKENAL PASTI:", plan["risks"])
+                print("KELULUSAN PEMILIK DIPERLUKAN:", plan["approval_required"])
+                if plan["approval_reason"]:
+                    print("SEBAB:", plan["approval_reason"])
+                print("STATUS:", plan["status"])
+                print("\nGHOST: Pelan sahaja. Tiada arahan dilaksanakan.\n")
+
+            except Exception as error:
+                print("GHOST: Gagal menghasilkan pelan:", error, "\n")
+
             continue
 
         elif command == "/remember":
