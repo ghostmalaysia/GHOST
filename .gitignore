@@ -43,3 +43,15 @@ backups/*
 *.backup
 *.backup*
 *.before-*
+
+# GHOST Android Companion - private signing keys and local files
+android-companion/*.jks
+android-companion/*.keystore
+android-companion/**/*.jks
+android-companion/**/*.keystore
+android-companion/local.properties
+android-companion/**/local.properties
+android-companion/.gradle/
+android-companion/**/.gradle/
+android-companion/build/
+android-companion/**/build/
