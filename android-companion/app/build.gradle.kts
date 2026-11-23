@@ -4,6 +4,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val releaseKeystorePath = System.getenv("GHOST_KEYSTORE_FILE")
+val releaseStorePassword = System.getenv("GHOST_KEYSTORE_PASSWORD")
+val releaseKeyAlias = System.getenv("GHOST_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("GHOST_KEY_PASSWORD")
+
 android {
     namespace = "com.ghost.securitycenter"
     compileSdk = 36
@@ -14,6 +19,23 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(
+                releaseKeystorePath ?: "MISSING_GHOST_RELEASE_KEYSTORE"
+            )
+            storePassword = releaseStorePassword.orEmpty()
+            keyAlias = releaseKeyAlias.orEmpty()
+            keyPassword = releaseKeyPassword.orEmpty()
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     buildFeatures {
