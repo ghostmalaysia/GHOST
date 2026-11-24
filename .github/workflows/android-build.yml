@@ -103,6 +103,10 @@ jobs:
           PACKAGE_LINE="$("$AAPT" dump badging "$APK" | head -n 1)"
           echo "$PACKAGE_LINE" | grep -F "name='com.ghost.securitycenter'"
 
+          echo "===== GHOST APK DIAGNOSTICS ====="
+          "$AAPT" dump badging "$APK" | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:|launchable-activity:)"
+          echo "===== END APK DIAGNOSTICS ====="
+
           "$APKSIGNER" verify --print-certs "$APK" | tee "$RUNNER_TEMP/ghost-cert.txt"
 
           ACTUAL_FINGERPRINT="$(grep -i 'certificate SHA-256 digest:' "$RUNNER_TEMP/ghost-cert.txt" | head -n 1 | sed 's/.*digest: //' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
