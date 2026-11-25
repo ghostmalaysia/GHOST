@@ -200,7 +200,8 @@ Vault ini bukan pengurus kata laluan bertauliah dan belum diaudit secara
 bebas. PIN tidak boleh dipulihkan tanpa memadam data aplikasi. Jangan simpan
 rahsia bernilai tinggi di sini.
 
-Skrin dashboard mempunyai butang **CHECK FOR UPDATE**. Ia menyemak GitHub
+Skrin dashboard menyemak GitHub Releases secara automatik semasa aplikasi dibuka
+dan mempunyai butang **CHECK FOR UPDATE** untuk semakan manual. Ia menyemak
 Releases terkini untuk repositori `ghostmalaysia/GHOST`, membandingkan versi,
 memuat turun APK dan fail `ghost-apk-sha256.txt`, serta mengesahkan SHA-256
 sebelum membuka pemasang sistem. Android masih meminta pengesahan pemasangan;

@@ -133,6 +133,8 @@ private fun GhostApp() {
         }.start()
     }
 
+    LaunchedEffect(Unit) { checkUpdate() }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

@@ -27,6 +27,8 @@ class CloudMemory:
         self.api_key = ""
         self.token = ""
         self.owner_id = ""
+        self.email = ""
+        self.password = ""
 
         self._load_config()
 
@@ -47,15 +49,26 @@ class CloudMemory:
             value = value.strip().strip('"').strip("'")
             config[key] = value
 
+        creds_file = CONFIG_DIR / "supabase_credentials"
+        if creds_file.exists():
+            for line in creds_file.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                config[key.strip()] = value.strip().strip('"').strip("'")
+
         self.url = config.get("SUPABASE_URL", "").rstrip("/")
         self.api_key = config.get("SUPABASE_KEY", "")
+        self.email = config.get("SUPABASE_EMAIL", "").strip()
+        self.password = config.get("SUPABASE_PASSWORD", "")
 
         if not self.url or not self.api_key:
             raise RuntimeError("Konfigurasi Supabase tidak lengkap.")
 
     def login(self):
-        email = os.getenv("SUPABASE_EMAIL", "").strip()
-        password = os.getenv("SUPABASE_PASSWORD", "")
+        email = os.getenv("SUPABASE_EMAIL", "").strip() or self.email
+        password = os.getenv("SUPABASE_PASSWORD", "") or self.password
 
         if not email:
             email = input("Email Supabase: ").strip()
