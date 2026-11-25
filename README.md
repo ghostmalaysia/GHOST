@@ -107,6 +107,9 @@ Untuk mengaktifkan Cloud Memory, salin
 publishable/anon key projek Supabase, dan sediakan jadual `ghost_memories` serta
 polisi akses yang mengehadkan rekod kepada pemilik. GHOST akan meminta e-mel dan
 kata laluan Supabase secara interaktif; kata laluan tidak disimpan dalam kod.
+Untuk automasi, tetapkan `SUPABASE_EMAIL` dan `SUPABASE_PASSWORD` dalam
+persekitaran setempat sebelum menjalankan GHOST — jangan letak nilai itu dalam
+repo.
 Untuk membuat jadual dan polisi asas, jalankan `config/supabase_schema.sql`
 sekali dalam SQL Editor projek Supabase anda.
 

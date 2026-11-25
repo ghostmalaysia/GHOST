@@ -1,3 +1,4 @@
+import os
 import uuid
 import sys
 import getpass
@@ -53,8 +54,13 @@ class CloudMemory:
             raise RuntimeError("Konfigurasi Supabase tidak lengkap.")
 
     def login(self):
-        email = input("Email Supabase: ").strip()
-        password = getpass.getpass("Password Supabase: ")
+        email = os.getenv("SUPABASE_EMAIL", "").strip()
+        password = os.getenv("SUPABASE_PASSWORD", "")
+
+        if not email:
+            email = input("Email Supabase: ").strip()
+        if not password:
+            password = getpass.getpass("Password Supabase: ")
 
         data = self._request(
             "POST",
