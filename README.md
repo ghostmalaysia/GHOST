@@ -110,12 +110,35 @@ kata laluan Supabase secara interaktif; kata laluan tidak disimpan dalam kod.
 Untuk membuat jadual dan polisi asas, jalankan `config/supabase_schema.sql`
 sekali dalam SQL Editor projek Supabase anda.
 
+### Mod memori
+
+Salin `config/memory.example.json` ke `config/memory.json` dan pilih salah satu:
+
+- `local` (lalai): SQLite pada peranti; salinan cloud hanya selepas persetujuan.
+- `cloud`: Supabase dicuba dahulu. Jika gagal, GHOST menyimpan salinan
+  setempat sebagai sandaran. Tiada pertindikan apabila cloud berjaya.
+- `cloud_only`: SQLite tidak ditulis langsung — sesuai jika storan telefon
+  terhad. Jika Supabase tidak tersedia, tiada memori disimpan.
+
+`/forget ID` memadam rekod tempatan sahaja. `/forgetcloud UUID` memadam rekod
+Supabase milik pemilik. Kandungan memori masih tertakluk kepada penapis
+kredensial sebelum dihantar kepada mana-mana penyedia AI.
+
 ## Carian internet pilihan
 
 Modul Tavily memerlukan akaun/API key Tavily dan akses rangkaian. Salin
 `config/tavily.env.example` ke `config/tavily.env`, gantikan nilai contoh,
 dan simpan fail itu secara peribadi. Carian internet/Web Reader tidak bermula
 secara automatik ketika sembang; ia tersedia melalui modul `core/learning`.
+
+### Belajar internet percuma
+
+`/learn topik` menggunakan API awam Wikipedia (tanpa API key) melalui
+`core/learning/free_web.py` dan `core/learning/learn_loop.py`. GHOST mencari
+beberapa halaman, meringkaskan fakta melalui penyedia AI semasa, memaparkan
+sumber URL, dan hanya menyimpan selepas pemilik meluluskan. Kandungan web
+sentiasa dianggap data tidak dipercayai, bukan arahan, dan tidak disalin ke
+cloud secara automatik.
 
 ## Konfigurasi Horus
 

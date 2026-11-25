@@ -6,7 +6,7 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from core.paths import IDENTITY_FILE, MEMORY_DIR
+from core.paths import CONFIG_DIR, IDENTITY_FILE, MEMORY_DIR
 from core.ai.collaboration import collaborate
 from core.ai.providers import ProviderError, ask, list_providers, load_config
 
@@ -15,6 +15,7 @@ sys.path.insert(0, str(MEMORY_DIR))
 import ghost_memory as local_memory
 from cloud_memory import CloudMemory
 from core.intelligence.reasoning_engine import ask_reasoning
+from core.learning.learn_loop import learn_topic
 
 
 def load_identity():
@@ -23,6 +24,23 @@ def load_identity():
     except FileNotFoundError:
         print(f"Identity file not found: {IDENTITY_FILE}")
         raise SystemExit(1)
+
+
+_MEMORY_MODES = ("local", "cloud", "cloud_only")
+
+
+def memory_mode():
+    path = CONFIG_DIR / "memory.json"
+    if path.is_file():
+        try:
+            config = json.loads(path.read_text(encoding="utf-8"))
+            mode = str(config.get("mode", "local")).strip().lower()
+            if mode in _MEMORY_MODES:
+                return mode
+            print("GHOST: Mod memori tidak dikenali:", mode)
+        except (OSError, json.JSONDecodeError) as error:
+            print("GHOST: Konfigurasi memori tidak sah:", error)
+    return "local"
 
 
 def connect_cloud():
@@ -46,18 +64,19 @@ def find_relevant_memories(user_text, cloud, limit=5):
 
     found = {}
 
-    # Local Memory
-    for word in words:
-        try:
-            for item in local_memory.search(word):
-                key = f"local-{item[0]}"
-                found[key] = {
-                    "source": "LOCAL",
-                    "category": item[1],
-                    "content": item[2]
-                }
-        except Exception as error:
-            print("GHOST: Local Memory search error:", error)
+    # Local Memory is skipped in cloud_only mode to keep device storage free.
+    if memory_mode() != "cloud_only":
+        for word in words:
+            try:
+                for item in local_memory.search(word):
+                    key = f"local-{item[0]}"
+                    found[key] = {
+                        "source": "LOCAL",
+                        "category": item[1],
+                        "content": item[2]
+                    }
+            except Exception as error:
+                print("GHOST: Local Memory search error:", error)
 
     # Cloud Memory
     if cloud is not None:
@@ -158,15 +177,16 @@ def ask_ghost(messages, memory_context=""):
 
 
 def show_memories(cloud):
-    print("\n--- LOCAL MEMORY ---")
+    if memory_mode() != "cloud_only":
+        print("\n--- LOCAL MEMORY ---")
 
-    items = local_memory.show_all()
+        items = local_memory.show_all()
 
-    if items:
-        for item in items:
-            print(f"LOCAL ID: {item[0]} | {item[1]} | {item[2]}")
-    else:
-        print("Tiada memori Local.")
+        if items:
+            for item in items:
+                print(f"LOCAL ID: {item[0]} | {item[1]} | {item[2]}")
+        else:
+            print("Tiada memori Local.")
 
     print("\n--- CLOUD MEMORY ---")
 
@@ -199,15 +219,34 @@ def save_memory(cloud):
         print("GHOST: Tiada maklumat disimpan.\n")
         return
 
+    mode = memory_mode()
+
+    if mode in ("cloud", "cloud_only") and cloud is not None:
+        try:
+            result = cloud.remember(content, category)
+            print("GHOST: Memori disimpan ke Supabase.")
+            if result:
+                print("Cloud ID:", result[0].get("id"))
+            print()
+            return
+        except Exception as error:
+            print("GHOST: Simpanan cloud gagal:", error)
+            if mode == "cloud_only":
+                print("GHOST: Tiada salinan setempat dalam mod cloud_only.\n")
+                return
+            print("GHOST: Cuba simpan pada peranti...")
+
+    if mode == "cloud_only":
+        print("GHOST: Cloud Memory tidak tersedia. Tiada data disimpan.\n")
+        return
+
     try:
         local_memory.remember(content, category)
         print("GHOST: Memori disimpan pada peranti.")
     except Exception as error:
         print("GHOST: Simpanan setempat gagal:", error)
-        print()
-        return
 
-    if cloud is not None:
+    if cloud is not None and mode == "local":
         sync_choice = input("Simpan salinan ke Supabase juga? (y/N): ").strip().lower()
         if sync_choice == "y":
             try:
@@ -229,15 +268,16 @@ def search_memories(keyword, cloud):
         print("Kata kunci kosong.\n")
         return
 
-    print("\n--- LOCAL SEARCH ---")
+    if memory_mode() != "cloud_only":
+        print("\n--- LOCAL SEARCH ---")
 
-    local_results = local_memory.search(keyword)
+        local_results = local_memory.search(keyword)
 
-    if local_results:
-        for item in local_results:
-            print(f"LOCAL ID: {item[0]} | {item[1]} | {item[2]}")
-    else:
-        print("Tiada hasil Local.")
+        if local_results:
+            for item in local_results:
+                print(f"LOCAL ID: {item[0]} | {item[1]} | {item[2]}")
+        else:
+            print("Tiada hasil Local.")
 
     print("\n--- CLOUD SEARCH ---")
 
@@ -269,10 +309,12 @@ def show_help():
     print("/model NAME   - Pilih AI untuk sembang ini")
     print("/collab A,B: TUGASAN - Draf, semakan silang dan rumusan")
     print("/plan TEXT    - Bina pelan dan semak risiko")
-    print("/remember     - Simpan memori setempat; pilih jika mahu salinan cloud")
+    print("/learn TOPIC  - Belajar dari Wikipedia; simpan dengan kebenaran")
+    print(f"/remember     - Simpan memori (mod semasa: {memory_mode()})")
     print("/memory       - Lihat Local dan Cloud Memory")
     print("/search TEXT  - Cari Local dan Cloud Memory")
     print("/forget ID    - Padam Local Memory sahaja")
+    print("/forgetcloud UUID - Padam Cloud Memory milik pemilik")
     print("/clear        - Reset perbualan")
     print("/exit         - Keluar\n")
 
@@ -414,6 +456,57 @@ def main():
 
             continue
 
+        elif command.startswith("/learn"):
+            topic = user_text[len("/learn"):].strip()
+            if not topic:
+                print("Cara guna: /learn topik\n")
+                continue
+
+            print("GHOST: Mencari sumber percuma (Wikipedia)...")
+            try:
+                result = learn_topic(topic)
+            except Exception as error:
+                print("GHOST: Pembelajaran gagal:", error, "\n")
+                continue
+
+            if result["status"] != "success" or not result["facts"]:
+                print("GHOST: Tiada fakta boleh disahkan.\n")
+                continue
+
+            facts = result["facts"][:8]
+            for number, item in enumerate(facts, 1):
+                print(f"{number}. {item['fact']}")
+                print(f"   sumber: {item['source']}")
+
+            choice = input("Simpan fakta ini ke memori GHOST? (y/N): ").strip().lower()
+            if choice != "y":
+                print("GHOST: Tiada fakta disimpan.\n")
+                continue
+
+            mode = memory_mode()
+            saved = 0
+            for item in facts:
+                content = (
+                    f"[BELAJAR: {item['topic']}] {item['fact']} "
+                    f"(sumber: {item['source']})"
+                )
+                if any(pattern.search(content) for pattern in _SENSITIVE_MEMORY_PATTERNS):
+                    continue
+
+                try:
+                    if mode in ("cloud", "cloud_only") and cloud is not None:
+                        cloud.remember(content, "learned")
+                    elif mode != "cloud_only":
+                        local_memory.remember(content, "learned")
+                    else:
+                        continue
+                    saved += 1
+                except Exception as error:
+                    print("GHOST: Gagal menyimpan satu fakta:", error)
+
+            print(f"GHOST: {saved} fakta disimpan.\n")
+            continue
+
         elif command == "/remember":
             save_memory(cloud)
             continue
@@ -425,6 +518,25 @@ def main():
         elif command.startswith("/search"):
             keyword = user_text[len("/search"):].strip()
             search_memories(keyword, cloud)
+            continue
+
+        elif command.startswith("/forgetcloud"):
+            parts = user_text.split(maxsplit=1)
+
+            if len(parts) < 2:
+                print("Cara guna: /forgetcloud UUID\n")
+                continue
+
+            if cloud is None:
+                print("GHOST: Cloud Memory tidak tersedia.\n")
+                continue
+
+            try:
+                cloud.forget(parts[1].strip())
+                print("GHOST: Cloud Memory dipadam.\n")
+            except Exception as error:
+                print("GHOST: Padaman cloud gagal:", error, "\n")
+
             continue
 
         elif command.startswith("/forget"):
