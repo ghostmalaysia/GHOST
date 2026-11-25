@@ -1,11 +1,25 @@
+import os
 import sqlite3
+import sys
 from pathlib import Path
 from datetime import datetime
 
-DB = Path.home() / "GHOST/memory/ghost_memory.db"
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from core.paths import MEMORY_DIR
+
+DB = MEMORY_DIR / "ghost_memory.db"
 
 def connect():
+    DB.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB)
+    try:
+        os.chmod(DB, 0o600)
+    except OSError:
+        # Some Android/PRoot filesystems do not support Unix permission bits.
+        pass
     conn.execute("""
         CREATE TABLE IF NOT EXISTS memories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

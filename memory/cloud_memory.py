@@ -1,12 +1,21 @@
 import uuid
-import requests
+import sys
 import getpass
+import json
+import urllib.error
+import urllib.request
+from urllib.parse import urlencode
 from pathlib import Path
 from datetime import datetime, timezone
 
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
-BASE_DIR = Path.home() / "GHOST"
-ENV_FILE = BASE_DIR / "config" / "supabase.env"
+from core.paths import CONFIG_DIR
+
+
+ENV_FILE = CONFIG_DIR / "supabase.env"
 TABLE_URL = "/rest/v1/ghost_memories"
 
 
@@ -47,19 +56,12 @@ class CloudMemory:
         email = input("Email Supabase: ").strip()
         password = getpass.getpass("Password Supabase: ")
 
-        response = requests.post(
+        data = self._request(
+            "POST",
             f"{self.url}/auth/v1/token?grant_type=password",
             headers={"apikey": self.api_key},
-            json={"email": email, "password": password},
-            timeout=30
+            payload={"email": email, "password": password},
         )
-
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Log masuk Supabase gagal: HTTP {response.status_code}"
-            )
-
-        data = response.json()
 
         self.token = data.get("access_token", "")
         self.owner_id = data.get("user", {}).get("id", "")
@@ -79,6 +81,37 @@ class CloudMemory:
             "Content-Type": "application/json"
         }
 
+    @staticmethod
+    def _request(method, url, headers=None, payload=None, params=None):
+        if params:
+            url += ("&" if "?" in url else "?") + urlencode(params)
+        body = None if payload is None else json.dumps(payload).encode("utf-8")
+        request_headers = dict(headers or {})
+        if body is not None:
+            request_headers.setdefault("Content-Type", "application/json")
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers=request_headers,
+            method=method,
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                raw = response.read().decode("utf-8")
+        except urllib.error.HTTPError as error:
+            details = error.read().decode("utf-8", errors="replace")[:1000]
+            raise RuntimeError(
+                f"Supabase HTTP {error.code}: {details}"
+            ) from error
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            raise RuntimeError(f"Tidak dapat menghubungi Supabase: {error}") from error
+        if not raw:
+            return []
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as error:
+            raise RuntimeError("Supabase memulangkan JSON yang tidak sah.") from error
+
     def remember(self, content, category="general", source_url=None):
         content = content.strip()
         category = category.strip() or "general"
@@ -97,28 +130,22 @@ class CloudMemory:
             "created_at": datetime.now(timezone.utc).isoformat()
         }
 
-        response = requests.post(
+        return self._request(
+            "POST",
             self.url + TABLE_URL,
             headers={
                 **self._headers(),
                 "Prefer": "return=representation"
             },
-            json=record,
-            timeout=30
+            payload=record,
         )
-
-        if response.status_code not in (200, 201):
-            raise RuntimeError(
-                f"Gagal menyimpan memori: HTTP {response.status_code}"
-            )
-
-        return response.json()
 
     def search(self, keyword, limit=10):
         if not keyword.strip():
             return []
 
-        response = requests.get(
+        return self._request(
+            "GET",
             self.url + TABLE_URL,
             headers=self._headers(),
             params={
@@ -129,18 +156,11 @@ class CloudMemory:
                 "order": "created_at.desc",
                 "limit": limit
             },
-            timeout=30
         )
 
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Gagal mencari memori: HTTP {response.status_code}"
-            )
-
-        return response.json()
-
     def show_all(self, limit=50):
-        response = requests.get(
+        return self._request(
+            "GET",
             self.url + TABLE_URL,
             headers=self._headers(),
             params={
@@ -150,30 +170,16 @@ class CloudMemory:
                 "order": "created_at.desc",
                 "limit": limit
             },
-            timeout=30
         )
 
-        if response.status_code != 200:
-            raise RuntimeError(
-                f"Gagal membaca memori: HTTP {response.status_code}"
-            )
-
-        return response.json()
-
     def forget(self, memory_id):
-        response = requests.delete(
+        self._request(
+            "DELETE",
             self.url + TABLE_URL,
             headers=self._headers(),
             params={
                 "id": f"eq.{memory_id}",
                 "owner_id": f"eq.{self.owner_id}"
             },
-            timeout=30
         )
-
-        if response.status_code not in (200, 204):
-            raise RuntimeError(
-                f"Gagal memadam memori: HTTP {response.status_code}"
-            )
-
         return True

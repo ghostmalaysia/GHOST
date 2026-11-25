@@ -46,6 +46,8 @@ jobs:
   build-release:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feature/ghost-security-center'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -103,14 +105,33 @@ jobs:
           PACKAGE_LINE="$("$AAPT" dump badging "$APK" | head -n 1)"
           echo "$PACKAGE_LINE" | grep -F "name='com.ghost.securitycenter'"
 
+          echo "===== GHOST APK DIAGNOSTICS ====="
+          "$AAPT" dump badging "$APK" | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:|launchable-activity:)"
+          echo "===== END APK DIAGNOSTICS ====="
+
           "$APKSIGNER" verify --print-certs "$APK" | tee "$RUNNER_TEMP/ghost-cert.txt"
 
-          ACTUAL_FINGERPRINT="$(grep -i 'Signer #1 certificate SHA-256 digest:' "$RUNNER_TEMP/ghost-cert.txt" | head -n 1 | sed 's/.*digest: //' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_FINGERPRINT="$(grep -i 'certificate SHA-256 digest:' "$RUNNER_TEMP/ghost-cert.txt" | head -n 1 | sed 's/.*digest: //' | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           EXPECTED_FINGERPRINT="6a8821d3c8cb541a45c858d045a0185192691e2aa7ecea58bf73ec02a9a9bef7"
 
           test "$ACTUAL_FINGERPRINT" = "$EXPECTED_FINGERPRINT"
 
           sha256sum "$APK" | tee "$GITHUB_WORKSPACE/ghost-apk-sha256.txt"
+
+      - name: Publish signed release to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          APK="android-companion/app/build/outputs/apk/release/app-release.apk"
+          TAG="v0.2.0"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" ghost-apk-sha256.txt --clobber
+          else
+            gh release create "$TAG" "$APK" ghost-apk-sha256.txt \
+              --title "GHOST Security Center v0.2.0" \
+              --notes "Signed APK released by the GHOST Android Build workflow."
+          fi
 
       - name: Upload signed release APK
         uses: actions/upload-artifact@v4

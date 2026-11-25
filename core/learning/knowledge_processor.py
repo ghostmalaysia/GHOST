@@ -2,7 +2,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 import sys
 
-BASE_DIR = Path.home() / "GHOST"
+BASE_DIR = Path(__file__).resolve().parents[2]
 LEARNING_DIR = BASE_DIR / "core" / "learning"
 
 sys.path.insert(0, str(LEARNING_DIR))

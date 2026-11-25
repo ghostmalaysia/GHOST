@@ -32,11 +32,33 @@ logs/*
 # Backups
 backups/*
 
-# Private configuration
-/config/
+# Private configuration; keep example templates in Git.
+/config/*
+!/config/*.example.json
+!/config/*.sql
+/config/*.env
+!/config/*.env.example
 
 # Third-party AI engine
 /engine/llama.cpp/
+
+# Android build outputs and private signing material
+android-companion/*.jks
+android-companion/*.keystore
+android-companion/**/*.jks
+android-companion/**/*.keystore
+android-companion/local.properties
+android-companion/**/local.properties
+android-companion/.gradle/
+android-companion/**/.gradle/
+android-companion/build/
+android-companion/**/build/
+
+# OpenCode runtime files
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/bun.lock
 
 # Old code backups
 *.bak

@@ -1,13 +1,14 @@
-import json
-import urllib.request
-import urllib.error
+import os
+import sys
+from pathlib import Path
 
-API_URL = "http://127.0.0.1:8080/v1/chat/completions"
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
-MODEL = (
-    "/data/data/com.termux/files/home/GHOST/"
-    "models/qwen/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-)
+from core.ai.providers import ask, load_config
+
+MODEL = os.environ.get("GHOST_KNOWLEDGE_PROVIDER", "")
 
 
 def analyze_content(content, source_url=""):
@@ -52,42 +53,23 @@ KANDUNGAN SUMBER:
 Analisis kandungan tersebut mengikut format yang ditetapkan.
 """
 
-    payload = {
-        "model": MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.2,
-        "max_tokens": 350,
-        "stream": False
-    }
-
-    request = urllib.request.Request(
-        API_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
 
     try:
-        with urllib.request.urlopen(request, timeout=240) as response:
-            result = json.loads(response.read().decode("utf-8"))
-
-        analysis = result["choices"][0]["message"]["content"]
+        provider_name = MODEL or load_config().get("default", "qwen")
+        analysis = ask(provider_name, messages)
 
         if not analysis.strip():
-            return {"error": "Qwen menghasilkan jawapan kosong."}
+            return {"error": "AI menghasilkan jawapan kosong."}
 
         return {
             "status": "success",
             "source_url": source_url,
             "analysis": analysis
         }
-
-    except urllib.error.HTTPError as error:
-        details = error.read().decode("utf-8", errors="replace")
-        return {"error": f"HTTP {error.code}: {details[:1000]}"}
 
     except Exception as error:
         return {"error": str(error)}
