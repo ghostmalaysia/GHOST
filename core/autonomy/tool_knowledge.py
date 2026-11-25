@@ -120,7 +120,9 @@ def build_knowledge_base():
     return result
 
 def search_tools(keyword):
-    data = json.loads(OUTPUT_FILE.read_text())
+    from core.autonomy.tool_registry import load_knowledge
+
+    data = load_knowledge()
     keyword = keyword.lower()
     return [
         item for item in data["tools"].values()

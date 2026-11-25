@@ -54,6 +54,12 @@ android-companion/**/.gradle/
 android-companion/build/
 android-companion/**/build/
 
+# OpenCode runtime files
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
+.opencode/bun.lock
+
 # Old code backups
 *.bak
 *.backup

@@ -8,10 +8,10 @@ from datetime import datetime, timezone, timedelta
 BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BASE_DIR))
 
-from core.autonomy import owner_auth
+from core.autonomy import owner_auth, tool_registry
 
 DB_FILE = BASE_DIR / "memory" / "ghost_autonomy.db"
-KNOWLEDGE_FILE = BASE_DIR / "memory" / "tool_knowledge.json"
+KNOWLEDGE_FILE = tool_registry.KNOWLEDGE_FILE
 
 
 def now():
@@ -50,10 +50,7 @@ def owner_confirmation(action):
     return True
 
 def validate_tool(tool_name, environment):
-    if not KNOWLEDGE_FILE.exists():
-        raise FileNotFoundError("Tool Knowledge Base not found.")
-
-    knowledge = json.loads(KNOWLEDGE_FILE.read_text())
+    knowledge = tool_registry.load_knowledge()
     tool = knowledge.get("tools", {}).get(tool_name)
 
     if not tool:
@@ -157,20 +154,23 @@ def check_permission(task, tool_name, environment, risk_level):
     conn = connect()
 
     try:
-        rows = conn.execute("""
-            SELECT * FROM owner_permissions
-            WHERE tool_name = ?
-              AND environment = ?
-              AND scope_type = 'exact_task'
-              AND scope_value = ?
-              AND status = 'active'
-              AND max_risk_level >= ?
-        """, (
-            tool_name,
-            environment,
-            task.strip(),
-            int(risk_level)
-        )).fetchall()
+        try:
+            rows = conn.execute("""
+                SELECT * FROM owner_permissions
+                WHERE tool_name = ?
+                  AND environment = ?
+                  AND scope_type = 'exact_task'
+                  AND scope_value = ?
+                  AND status = 'active'
+                  AND max_risk_level >= ?
+            """, (
+                tool_name,
+                environment,
+                task.strip(),
+                int(risk_level)
+            )).fetchall()
+        except sqlite3.OperationalError:
+            return False
 
         current = datetime.now(timezone.utc)
 

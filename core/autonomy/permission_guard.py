@@ -1,4 +1,3 @@
-import json
 import re
 import sys
 from pathlib import Path
@@ -8,8 +7,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(BASE_DIR))
 
 from core.autonomy.owner_authorization import check_permission
-
-KNOWLEDGE_FILE = BASE_DIR / "memory" / "tool_knowledge.json"
+from core.autonomy.tool_registry import KNOWLEDGE_FILE, load_knowledge as _load_knowledge
 
 LEVEL4_PATTERNS = [
     "delete", "wipe", "format", "destroy", "overwrite",
@@ -23,9 +21,7 @@ LEVEL4_PATTERNS = [
 
 
 def load_knowledge():
-    if not KNOWLEDGE_FILE.exists():
-        raise FileNotFoundError("Tool Knowledge Base not found.")
-    return json.loads(KNOWLEDGE_FILE.read_text())
+    return _load_knowledge()
 
 
 def classify_risk(task, tool_risk):

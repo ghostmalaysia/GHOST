@@ -6,9 +6,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parents[2]
-if str(PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(PROJECT_DIR))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.paths import PROJECT_DIR
 
@@ -159,8 +159,6 @@ def show_history():
 
 
 if __name__ == "__main__":
-    import sys
-
     command = sys.argv[1].lower() if len(sys.argv) > 1 else "backup"
 
     try:

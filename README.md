@@ -160,15 +160,50 @@ kongsi token dalam chat. Qwen dan server llama.cpp perlu disediakan berasingan.
 
 ## Android Security Center
 
-Modul `android-companion` daripada branch `feature/ghost-security-center` kini
-ada dalam workspace. Ia ialah prototaip UI: PIN, Secure Vault, pengurusan
-peranti, audit dan pemulihan pemilik belum berfungsi, dan aplikasi ini belum
-disambungkan kepada GHOST AI. Jangan gunakan skrin itu untuk menyimpan rahsia.
+Modul `android-companion` kini berada dalam repo. Versi 0.2.0 menyediakan Vault
+tempatan dengan PIN 8 digit yang disahkan melalui Android Keystore
+(AES-GCM). Rekod disulitkan pada peranti dan tidak dihantar kepada GHOST AI atau
+perkhidmatan awan. Skrin Audit hanya merekodkan peristiwa antara muka setempat,
+bukan audit log yang kalis gangguan. Skrin Devices memaparkan maklumat peranti
+secara baca sahaja. Skrin GHOST AI Link hanya menyimpan alamat endpoint; tiada
+ujian sambungan atau permintaan AI dibuat oleh APK ini. App PIN, pendaftaran
+peranti jauh dan Owner Recovery kekal sebagai paparan reka bentuk kerana
+memerlukan reka bentuk kebenaran pemilik dan backend yang belum tersedia.
 
-Workflow GitHub membina APK debug. Aliran release hanya berjalan secara manual
-dari branch `feature/ghost-security-center` dan memerlukan signing secrets serta
-keystore dalam GitHub Actions. Builds memerlukan rangkaian untuk memuat turun
-dependencies Android. Tiada signing key disimpan dalam repo.
+Vault ini bukan pengurus kata laluan bertauliah dan belum diaudit secara
+bebas. PIN tidak boleh dipulihkan tanpa memadam data aplikasi. Jangan simpan
+rahsia bernilai tinggi di sini.
+
+Skrin dashboard mempunyai butang **CHECK FOR UPDATE**. Ia menyemak GitHub
+Releases terkini untuk repositori `ghostmalaysia/GHOST`, membandingkan versi,
+memuat turun APK dan fail `ghost-apk-sha256.txt`, serta mengesahkan SHA-256
+sebelum membuka pemasang sistem. Android masih meminta pengesahan pemasangan;
+kemas kini senyap tidak disokong untuk APK yang dipasang terus. Jika checksum
+tidak sepadan, muat turun dibuang dan tiada pemasangan dibuka.
+
+Workflow GitHub membina APK debug pada push ke `android-companion/**`. Aliran
+release hanya berjalan secara manual dari branch
+`feature/ghost-security-center` dan memerlukan keystore asal supaya tandatangan
+APK sepadan dengan versi yang telah dipasang. Jangan hantar keystore, kata
+laluan atau secrets ke dalam chat atau repo.
+
+Langkah untuk APK release yang mengekalkan tandatangan lama:
+
+1. Tukar keystore asal kepada Base64 pada komputer pemilik (bukan dalam chat),
+   kemudian simpan sebagai GitHub Actions secret `GHOST_KEYSTORE_BASE64`.
+2. Simpan juga `GHOST_KEYSTORE_PASSWORD`, `GHOST_KEY_ALIAS` dan
+   `GHOST_KEY_PASSWORD` sebagai secrets repository.
+3. Pastikan branch `feature/ghost-security-center` mengandungi kemas kini ini,
+   kemudian jalankan workflow **GHOST Android Build** secara manual dari branch
+   tersebut. Workflow itu juga menerbitkan APK dan checksum ke GitHub Release
+   `v0.2.0` supaya butang **CHECK FOR UPDATE** dalam aplikasi dapat mengesannya.
+4. Pasang APK release yang dihasilkan. Jika tandatangan berbeza daripada APK
+   lama, Android akan menolak kemas kini — padam aplikasi lama dahulu. Untuk
+   versi seterusnya, naikkan `versionCode`, `versionName`, tag release dalam
+   workflow dan versi rujukan dalam `UpdateChecker`/`MainActivity` serentak.
+
+Builds memerlukan rangkaian untuk memuat turun dependencies Android. Tiada
+signing key disimpan dalam repo.
 
 ## Keperluan pilihan daripada pemilik
 
