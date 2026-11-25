@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 
-LEARNING_DIR = Path.home() / "GHOST" / "core" / "learning"
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+LEARNING_DIR = PROJECT_DIR / "core" / "learning"
 sys.path.insert(0, str(LEARNING_DIR))
 
 from knowledge_processor import process_url

@@ -1,0 +1,36 @@
+{
+  "default": "qwen",
+  "providers": {
+    "qwen": {
+      "type": "openai_compatible",
+      "base_url": "http://127.0.0.1:8080/v1",
+      "model": "qwen",
+      "timeout": 180
+    },
+    "free_api": {
+      "type": "openai_compatible",
+      "base_url": "https://YOUR_OPENAI_COMPATIBLE_PROVIDER/v1",
+      "model": "YOUR_FREE_MODEL_ID",
+      "api_key_env": "FREE_AI_API_KEY",
+      "timeout": 180
+    },
+    "claude": {
+      "type": "anthropic",
+      "model": "REPLACE_WITH_A_MODEL_ID",
+      "api_key_env": "ANTHROPIC_API_KEY",
+      "timeout": 180
+    },
+    "claude_code": {
+      "type": "claude_cli",
+      "command": "claude",
+      "args": ["--strict-mcp-config", "-p", "--tools", ""],
+      "timeout": 240
+    },
+    "opencode": {
+      "type": "opencode_cli",
+      "command": "opencode",
+      "args": ["run", "--agent", "ghost-collab"],
+      "timeout": 240
+    }
+  }
+}

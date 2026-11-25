@@ -2,11 +2,18 @@
 
 import json
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
-GHOST_DIR = Path.home() / "GHOST"
+from core.paths import PROJECT_DIR
+
+
+GHOST_DIR = PROJECT_DIR
 BACKUP_DIR = GHOST_DIR / "backups" / "automatic"
 
 

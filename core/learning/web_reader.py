@@ -1,17 +1,32 @@
 
 import json
+import sys
 import urllib.request
 from pathlib import Path
 
-CONFIG = Path.home() / "GHOST/config/tavily.env"
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
+
+from core.paths import CONFIG_DIR
+
+CONFIG = CONFIG_DIR / "tavily.env"
 
 
 def read_web(url):
     if not CONFIG.exists():
         return {"error": "Tavily configuration not found"}
 
-    line = CONFIG.read_text().strip()
-    api_key = line.split("=", 1)[1].strip()
+    api_key = ""
+    for line in CONFIG.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            key, value = line.split("=", 1)
+            if key.strip().removeprefix("export ").strip() == "TAVILY_API_KEY":
+                api_key = value.strip().strip("\"'")
+                break
+    if not api_key or api_key.startswith("YOUR_"):
+        return {"error": "TAVILY_API_KEY is missing from config/tavily.env"}
 
     data = json.dumps({
         "urls": [url]
