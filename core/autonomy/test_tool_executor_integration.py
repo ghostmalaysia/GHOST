@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
 
-from core.autonomy import owner_authorization, tool_executor
+from core.autonomy import owner_authorization, permission_guard, tool_executor
 
 
 class ToolExecutorIntegrationTests(unittest.TestCase):
@@ -17,6 +17,7 @@ class ToolExecutorIntegrationTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.db_file = self.root / "test_autonomy.db"
         self.inventory_file = self.root / "tool_inventory.json"
+        self.knowledge_file = self.root / "tool_knowledge.json"
 
         executable = shutil.which("uname")
         if not executable:
@@ -34,6 +35,16 @@ class ToolExecutorIntegrationTests(unittest.TestCase):
         }
 
         self.inventory_file.write_text(json.dumps(inventory))
+        self.knowledge_file.write_text(json.dumps({
+            "tools": {
+                "uname": {
+                    "risk_level": 1,
+                    "availability": {
+                        "termux": {"available": True}
+                    }
+                }
+            }
+        }))
 
         conn = sqlite3.connect(self.db_file)
         conn.executescript("""
@@ -68,12 +79,17 @@ class ToolExecutorIntegrationTests(unittest.TestCase):
         self.inventory_patch = patch.object(
             tool_executor, "INVENTORY_FILE", self.inventory_file
         )
+        self.knowledge_patch = patch.object(
+            permission_guard, "KNOWLEDGE_FILE", self.knowledge_file
+        )
 
         self.db_patch.start()
         self.inventory_patch.start()
+        self.knowledge_patch.start()
 
     def tearDown(self):
         self.inventory_patch.stop()
+        self.knowledge_patch.stop()
         self.db_patch.stop()
         self.temp.cleanup()
 

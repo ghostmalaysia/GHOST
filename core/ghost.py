@@ -8,13 +8,13 @@ sys.path.insert(0, str(PROJECT_DIR))
 
 from core.paths import IDENTITY_FILE, MEMORY_DIR
 from core.ai.collaboration import collaborate
-from core.ai.providers import ProviderError, list_providers, load_config
+from core.ai.providers import ProviderError, ask, list_providers, load_config
 
 sys.path.insert(0, str(MEMORY_DIR))
 
 import ghost_memory as local_memory
 from cloud_memory import CloudMemory
-from intelligence.reasoning_engine import ask_reasoning
+from core.intelligence.reasoning_engine import ask_reasoning
 
 
 def load_identity():
