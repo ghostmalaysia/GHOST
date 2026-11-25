@@ -12,14 +12,20 @@ create table if not exists public.ghost_memories (
 
 alter table public.ghost_memories enable row level security;
 
+revoke all on public.ghost_memories from anon;
+grant select, insert, delete on public.ghost_memories to authenticated;
+
+drop policy if exists "GHOST owner can read approved memories" on public.ghost_memories;
 create policy "GHOST owner can read approved memories"
     on public.ghost_memories for select
     using (auth.uid() = owner_id and approved = true);
 
+drop policy if exists "GHOST owner can add own memories" on public.ghost_memories;
 create policy "GHOST owner can add own memories"
     on public.ghost_memories for insert
     with check (auth.uid() = owner_id);
 
+drop policy if exists "GHOST owner can delete own memories" on public.ghost_memories;
 create policy "GHOST owner can delete own memories"
     on public.ghost_memories for delete
     using (auth.uid() = owner_id);
