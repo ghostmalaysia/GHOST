@@ -124,12 +124,12 @@ jobs:
         run: |
           set -eu
           APK="android-companion/app/build/outputs/apk/release/app-release.apk"
-          TAG="v0.2.0"
+          TAG="v0.2.1"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" ghost-apk-sha256.txt --clobber
           else
             gh release create "$TAG" "$APK" ghost-apk-sha256.txt \
-              --title "GHOST Security Center v0.2.0" \
+              --title "GHOST Security Center v0.2.1" \
               --notes "Signed APK released by the GHOST Android Build workflow."
           fi
 

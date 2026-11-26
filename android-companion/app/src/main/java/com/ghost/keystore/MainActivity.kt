@@ -92,7 +92,7 @@ private fun GhostApp() {
         Thread {
             val info = UpdateChecker.latest()
             Handler(Looper.getMainLooper()).post {
-                if (info != null && UpdateChecker.isNewer(info.version, "0.2.0")) {
+                if (info != null && UpdateChecker.isNewer(info.version, "0.2.1")) {
                     updateInfo = info
                     updateStatus = "Versi ${info.version} tersedia."
                 } else {
@@ -145,7 +145,7 @@ private fun GhostApp() {
         Text("GHOST", color = ElectricBlue, fontSize = 30.sp, fontWeight = FontWeight.Bold)
         Text("SECURITY CENTER", color = SoftText, fontSize = 12.sp, letterSpacing = 3.sp)
         Spacer(Modifier.height(6.dp))
-        Text("v0.2.0 • LOCAL-DEVICE BUILD", color = Warning, fontSize = 10.sp)
+        Text("v0.2.1 • LOCAL-DEVICE BUILD", color = Warning, fontSize = 10.sp)
 
         Spacer(Modifier.height(20.dp))
 

@@ -223,7 +223,7 @@ Langkah untuk APK release yang mengekalkan tandatangan lama:
 3. Pastikan branch `feature/ghost-security-center` mengandungi kemas kini ini,
    kemudian jalankan workflow **GHOST Android Build** secara manual dari branch
    tersebut. Workflow itu juga menerbitkan APK dan checksum ke GitHub Release
-   `v0.2.0` supaya butang **CHECK FOR UPDATE** dalam aplikasi dapat mengesannya.
+    `v0.2.1` supaya butang **CHECK FOR UPDATE** dalam aplikasi dapat mengesannya.
 4. Pasang APK release yang dihasilkan. Jika tandatangan berbeza daripada APK
    lama, Android akan menolak kemas kini — padam aplikasi lama dahulu. Untuk
    versi seterusnya, naikkan `versionCode`, `versionName`, tag release dalam

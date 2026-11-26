@@ -14,7 +14,7 @@ data class UpdateInfo(val version: String, val apkUrl: String, val checksumUrl: 
 object UpdateChecker {
     private const val RELEASES_URL =
         "https://api.github.com/repos/ghostmalaysia/GHOST/releases/latest"
-    private const val USER_AGENT = "GHOST-Security-Center/0.2.0"
+    private const val USER_AGENT = "GHOST-Security-Center/0.2.1"
 
     fun latest(): UpdateInfo? {
         val text = fetchText(RELEASES_URL) ?: return null
